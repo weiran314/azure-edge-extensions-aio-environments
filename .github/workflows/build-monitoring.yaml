@@ -18,11 +18,15 @@ on:
         description: 'Azure VM Name'
         required: true
         type: string
+      resourceGroup:
+        description: 'Azure Resource Group'
+        required: true
+        type: string
 jobs:
   Build-Monitoring:
     runs-on: ubuntu-latest
     env:
-      resourceGroup: rg-${{ inputs.vmName }}
+      resourceGroup: ${{ inputs.resourceGroup }}
       clusterName: ${{ inputs.clusterName }}
       vmName: ${{ inputs.vmName }}
       grafanaName: footprint-${{github.run_id}}
