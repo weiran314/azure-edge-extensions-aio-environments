@@ -1,0 +1,49 @@
+name: Build Monitoring
+on:
+  workflow_call:
+    inputs:
+      clusterName:
+          required: true
+          type: string
+      vmName:
+          required: true
+          type: string
+  workflow_dispatch:
+    inputs:
+      clusterName:
+        description: 'Azure Arc Cluster Name'
+        required: true
+        type: string
+      vmName:
+        description: 'Azure VM Name'
+        required: true
+        type: string
+jobs:
+  Build-Monitoring:
+    runs-on: ubuntu-latest
+    env:
+      resourceGroup: rg-${{ inputs.vmName }}
+      clusterName: ${{ inputs.clusterName }}
+      vmName: ${{ inputs.vmName }}
+      grafanaName: footprint-${{github.run_id}}
+      monitorName: footprint
+      logAnalytics: la-footprint
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Log in with Azure
+      uses: azure/login@v1
+      with:
+        creds: '{"clientId":"${{ secrets.AZURE_SP_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_SP_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+    - name: Configure environment
+      run: |
+        echo "Making sure necessary providers are registered..."
+        az config set extension.use_dynamic_install=yes_without_prompt
+        az provider register --namespace Microsoft.Insights --wait
+        az provider register --namespace Microsoft.AlertsManagement --wait
+        az extension add --name amg
+    - name: Create Azure Monitor and Grafana resources
+      run: bash ${GITHUB_WORKSPACE}/scripts/configure-azmon-grafana.sh -g $resourceGroup -m $monitorName -d $grafanaName -c $clusterName
+    - name: Configure hostmemusage collection
+      run: bash ${GITHUB_WORKSPACE}/scripts/configure-vm-hostmemusage-collector.sh -v $vmName -g $resourceGroup -l $logAnalytics -m $monitorName
